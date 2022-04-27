@@ -139,7 +139,7 @@ class PostPagesTests(TestCase):
         self.assertEqual(len(response.context['page_obj']), 0)
 
 
-class PiginatorViewsTest(TestCase):
+class PaginatorViewsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -149,12 +149,14 @@ class PiginatorViewsTest(TestCase):
             slug='test_slug',
             description='test_description',
         )
-        for i in range(13):
-            cls.posts = Post.objects.create(
+        cls.posts = []
+        for test_post in range(13):
+            cls.posts.append(Post(
                 author=cls.user,
-                text=f'{i} Text',
-                group=cls.group,
+                text=f'{test_post}',
+                group=cls.group)
             )
+        Post.objects.bulk_create(cls.posts)
         cls.templates = [
             reverse('posts:index'),
             reverse('posts:group_list', kwargs={'slug': cls.group.slug}),
@@ -172,22 +174,21 @@ class PiginatorViewsTest(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
-    def test_paginator_1(self):
+    def test_first_page_has_ten_posts(self):
         """Проверяет, что на первой странице 10 постов."""
-        for posts_for_paginator in range(len(self.templates)):
-            with self.subTest(
-                    templates=self.templates[posts_for_paginator]):
-                response = self.authorized_client.get(
-                    self.templates[posts_for_paginator])
-                self.assertEqual(len(response.context['page_obj']),
-                                 settings.POSTS_PER_PAGE)
+        for page in self.templates:
+            with self.subTest(page=page):
+                response = self.authorized_client.get(page)
+                self.assertEqual(
+                    len(response.context['page_obj']), settings.POSTS_PER_PAGE
+                )
 
-    def test_paginator_2(self):
+    def test_rests_of_the_posts_next_page(self):
         """Проверяет, что на второй странице 3 поста."""
-        for posts_on_next_page in range(len(self.templates2)):
-            with self.subTest(
-                    templates2=self.templates2[posts_on_next_page]):
-                response = self.authorized_client.get(
-                    self.templates2[posts_on_next_page])
-                self.assertEqual(len(response.context['page_obj']),
-                                 settings.POSTS_PER_PAGE_2)
+        for page in self.templates2:
+            with self.subTest(page=page):
+                response = self.authorized_client.get(page)
+                self.assertEqual(
+                    len(response.context['page_obj']),
+                    settings.POSTS_PER_PAGE_2
+                )
