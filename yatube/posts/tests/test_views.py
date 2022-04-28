@@ -72,7 +72,7 @@ class PostPagesTests(TestCase):
         self.post_check(post)
         self.assertEqual(response.context["group"], self.group)
 
-    def test_group_list_page_correct_context(self):
+    def test_profile_page_correct_context(self):
         """Проверка списка постов отфильтрованных по пользователю."""
         response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': self.user.username}))
@@ -103,7 +103,7 @@ class PostPagesTests(TestCase):
                     response.context['form'].fields[value], expected)
 
     def test_post_edit_show_correct_context(self):
-        """Шаблон post_edit сформирован с правильным контекстом."""
+        """Шаблон редактирования поста сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:post_edit', kwargs={'post_id': self.post.id})
         )
@@ -117,9 +117,9 @@ class PostPagesTests(TestCase):
                     response.context['form'].fields[value], expected)
         self.assertIsInstance(response.context.get('form'), PostForm)
 
-    def test_post_new_create_appears_on_correct_pages(self):
+    def test_new_post_create_appears_on_correct_pages(self):
         """При создании поста он должен появляется на главной странице,
-        на странице выбранной группы и в профиле пользователя"""
+        на странице выбранной группы и в профиле пользователя."""
         pages = [
             reverse('posts:index'),
             reverse(
@@ -133,7 +133,7 @@ class PostPagesTests(TestCase):
                 self.assertIn(self.post, response.context['page_obj'])
 
     def test_post_in_the_right_group(self):
-        """ Проверяем что пост не попал в другую группу """
+        """Проверяем что пост не попал в другую группу."""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': 'test_slug_2'}))
         self.assertEqual(len(response.context['page_obj']), 0)

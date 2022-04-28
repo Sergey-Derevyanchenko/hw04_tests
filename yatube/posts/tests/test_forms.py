@@ -12,6 +12,7 @@ class PostsFormsTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create_user(username='Auth_user')
+        cls.test_user = User.objects.create_user(username='Test_user')
         cls.group = Group.objects.create(
             title='test_group',
             slug='test_slug',
@@ -31,10 +32,12 @@ class PostsFormsTests(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        self.authorized_test_client = Client()
+        self.authorized_test_client.force_login(self.test_user)
 
     def test_create_post_form(self):
         """При отправке валидной формы со страницы создания
-        поста создаётся новая запись в базе данных
+        поста создаётся новая запись в базе данных.
         """
         posts = Post.objects.count()
         response = self.authorized_client.post(
@@ -43,15 +46,13 @@ class PostsFormsTests(TestCase):
         )
         self.assertEqual(posts + 1, Post.objects.count())
 
-        last_post = Post.objects.latest('pub_date')
+        last_post = Post.objects.order_by('id').last()
         self.assertEqual(self.form_data['text'], last_post.text)
         self.assertEqual(self.form_data['group'], last_post.group.id)
         self.assertEqual(self.user.username, last_post.author.username)
         self.assertRedirects(
             response, reverse(
-                'posts:profile',
-                kwargs={'username': self.user.username}
-            )
+                'posts:profile', kwargs={'username': self.user.username})
         )
 
     def test_edit_post_form(self):
@@ -61,9 +62,8 @@ class PostsFormsTests(TestCase):
         posts = Post.objects.count()
         response = self.authorized_client.post(
             reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}
-            ), data=self.form_data
+                'posts:post_edit', kwargs={'post_id': self.post.id}),
+            data=self.form_data
         )
         self.assertRedirects(
             response, reverse(
@@ -76,7 +76,7 @@ class PostsFormsTests(TestCase):
         self.assertEqual(self.form_data['group'], post.group.id)
         self.assertEqual(posts, Post.objects.count())
 
-    def test_anonim_client_create_post(self):
+    def test_anonym_client_create_post(self):
         """Проверка возможности создания записи без регистрации."""
         post_count = Post.objects.count()
         response = self.guest_client.post(
@@ -85,8 +85,10 @@ class PostsFormsTests(TestCase):
             follow=True
         )
         self.assertEqual(Post.objects.count(), post_count)
-        self.assertRedirects(response, reverse(
-            'users:login') + '?next=/create/')
+        self.assertRedirects(
+            response,
+            reverse('users:login') + '?next=/create/'
+        )
         self.assertEqual(Post.objects.count(), post_count)
 
     def test_create_post_without_group(self):
@@ -100,25 +102,20 @@ class PostsFormsTests(TestCase):
             data=context,
             follow=True
         )
-        self.assertRedirects(response,
-                             reverse('posts:profile',
-                                     kwargs={
-                                         'username': self.user}))
-        self.assertEqual(Post.objects.count(), post_count + 1)
+        self.assertRedirects(
+            response,
+            reverse('posts:profile', kwargs={'username': self.user})
+        )
         self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertEqual(Post.objects.count(), post_count + 1)
         self.assertEqual(Post.objects.latest('id').text, context['text'])
 
-    def test_edit_other_person_post(self):
+    def test_edit_other_user_post(self):
         """Проверка возможности редактировать чужие записи."""
-        user = User.objects.create(
-            username='Test_user'
-        )
-        authorized_client = Client()
-        authorized_client.force_login(user)
         form_data = {
             'text': 'Отредактированный текст поста',
         }
-        response = authorized_client.post(
+        response = self.authorized_test_client.post(
             reverse('posts:post_edit', kwargs={'post_id': self.post.id}),
             data=form_data,
             follow=True

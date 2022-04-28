@@ -27,7 +27,6 @@ class PostsURLTest(TestCase):
             f'/group/{cls.group.slug}/',
             f'/profile/{cls.user.username}/',
             f'/posts/{cls.post.id}/',
-            "/unexisting_page/",
         ]
         cls.templates_urls = {
             '/': 'posts/index.html',
@@ -54,11 +53,7 @@ class PostsURLTest(TestCase):
         for url in self.urls:
             with self.subTest(url=url):
                 response = self.guest_client.get(url)
-                if url == "/unexisting_page/":
-                    self.assertEqual(
-                        response.status_code, HTTPStatus.NOT_FOUND)
-                else:
-                    self.assertEqual(response.status_code, HTTPStatus.OK)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_of_templates(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -76,29 +71,28 @@ class PostsURLTest(TestCase):
                 response = self.authorized_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
-    def test_page_accessability_and_template_author(self):
-        """Проверка доступности редактирования для автора поста"""
+    def test_post_edit_accessability_for_author(self):
+        """Проверка доступности редактирования для автора поста."""
         response = self.author_client.get(reverse(
-            'posts:post_edit', kwargs={'post_id': self.post.id}
-        ))
+            'posts:post_edit', kwargs={'post_id': self.post.id})
+        )
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
-    def test_post_edit_and_create_for_non_auth_user(self):
+    def test_post_edit_and_create_accessability_for_non_auth_user(self):
         """Анониму не доступны страницы создания/редактирования поста."""
         for url in self.templates_auth:
             with self.subTest(url=url):
                 response = self.guest_client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
-    def test_url_redirect_anonymous_on_login(self):
+    def test_post_edit_and_create_redirect_anonymous_to_login(self):
         """При попытке анонима получить доступ к созданию/редактированию поста,
         его редиректит на страницу логина.
         """
         self.assertRedirects(
             self.guest_client.get(reverse(
                 'posts:post_edit', kwargs={'post_id': self.post.id})),
-            reverse('users:login')
-            + '?next=' + reverse(
+            reverse('users:login') + '?next=' + reverse(
                 'posts:post_edit', kwargs={'post_id': self.post.id})
         )
         self.assertRedirects(
@@ -106,12 +100,16 @@ class PostsURLTest(TestCase):
             reverse('users:login') + '?next=' + reverse('posts:post_create')
         )
 
-    def test_url_redirect_anonymous_on_login(self):
+    def test_post_edit_redirect_non_author_to_post_detail(self):
         """Не автора поста редиректит на страницу поста."""
         self.assertRedirects(
             self.not_author_client.get(reverse(
-                'posts:post_edit',
-                kwargs={'post_id': self.post.id}),
+                'posts:post_edit', kwargs={'post_id': self.post.id}),
                 follow=True),
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})
         )
+
+    def test_unexisting_page(self):
+        """Запрос к несуществующей странице возвращает ошибку 404."""
+        response = self.guest_client.get('/unexisting_page/')
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
